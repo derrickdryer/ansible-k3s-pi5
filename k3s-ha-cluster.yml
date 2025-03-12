@@ -1,0 +1,66 @@
+---
+- name: Deploy HA K3s Cluster on Raspberry Pi 5
+  hosts: all
+  become: yes
+
+  vars:
+    vip: "192.168.100.204"
+    k3s_version: "v1.31.6+k3s1"
+
+  tasks:
+
+    - name: Install Required Packages
+      apt:
+        name:
+          - curl
+          - sudo
+          - keepalived
+        state: present
+        update_cache: yes
+
+    - name: Install K3s on Master (Apollo-1)
+      shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --cluster-init --tls-san {{ vip }} --write-kubeconfig-mode=644" sh -
+      when: inventory_hostname == "apollo-1"
+
+    - name: Get K3s Token from Apollo-1
+      shell: cat /var/lib/rancher/k3s/server/node-token
+      register: k3s_token
+      when: inventory_hostname == "apollo-1"
+
+    - name: Copy K3s Token to Worker Nodes
+      copy:
+        content: "{{ hostvars['apollo-1'].k3s_token.stdout }}"
+        dest: /tmp/k3s_token.txt
+      when: inventory_hostname in groups['workers']
+
+    - name: Install K3s on Worker Nodes
+      shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --server https://{{ vip }}:6443 --token $(cat /tmp/k3s_token.txt) --tls-san {{ vip }}" sh -
+      when: inventory_hostname in groups['workers']
+
+    - name: Set Up Keepalived for VIP Management
+      template:
+        src: keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+      notify:
+        - Restart Keepalived
+
+    - name: Ensure kubeconfig is accessible
+      file:
+        path: /etc/rancher/k3s/k3s.yaml
+        mode: '0644'
+      when: inventory_hostname == "apollo-1"
+
+    - name: Copy kubeconfig to WSL Ubuntu
+      fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: ~/.kube/config
+        flat: yes
+      when: inventory_hostname == "apollo-1"
+
+  handlers:
+    - name: Restart Keepalived
+      systemd:
+        name: keepalived
+        state: restarted
