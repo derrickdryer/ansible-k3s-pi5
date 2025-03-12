@@ -2,11 +2,12 @@ vrrp_instance VI_1 {
     state MASTER
     interface eth0
     virtual_router_id 51
+    {# Change the inventory hostnames based on your requirements #}
     priority {% if inventory_hostname == 'apollo-1' %}100{% elif inventory_hostname == 'apollo-2' %}90{% else %}80{% endif %}
     advert_int 1
     authentication {
         auth_type PASS
-        auth_pass D/E/QVEdFElWH5/84fM9wg==
+        auth_pass D/E/QVEdFElWH5/84fM9wg== {# Generate a secret for here #}
     }
     virtual_ipaddress {
         {{ vip }}

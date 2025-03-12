@@ -4,7 +4,7 @@
   become: yes
 
   vars:
-    vip: "192.168.100.204"
+    vip: "192.168.100.204" # Change this to an availble static IP in your network
     k3s_version: "v1.31.6+k3s1"
 
   tasks:
@@ -21,12 +21,12 @@
     - name: Install K3s on Master (Apollo-1)
       shell: |
         curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --cluster-init --tls-san {{ vip }} --write-kubeconfig-mode=644" sh -
-      when: inventory_hostname == "apollo-1"
+      when: inventory_hostname == "apollo-1" # Change to your master node
 
     - name: Get K3s Token from Apollo-1
       shell: cat /var/lib/rancher/k3s/server/node-token
       register: k3s_token
-      when: inventory_hostname == "apollo-1"
+      when: inventory_hostname == "apollo-1" # Change to your master node
 
     - name: Copy K3s Token to Worker Nodes
       copy:
@@ -50,14 +50,14 @@
       file:
         path: /etc/rancher/k3s/k3s.yaml
         mode: '0644'
-      when: inventory_hostname == "apollo-1"
+      when: inventory_hostname == "apollo-1" # Change to your master node
 
     - name: Copy kubeconfig to WSL Ubuntu
       fetch:
         src: /etc/rancher/k3s/k3s.yaml
         dest: ~/.kube/config
         flat: yes
-      when: inventory_hostname == "apollo-1"
+      when: inventory_hostname == "apollo-1" # Change to your master node
 
   handlers:
     - name: Restart Keepalived
